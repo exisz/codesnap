@@ -6,48 +6,48 @@ import VercelAnalytics from "@/components/VercelAnalytics";
 
 export const metadata: Metadata = {
   title: {
-    default: "SITE_TITLE",
-    template: "%s | SITE_TITLE",
+    default: "CodeSnap — Beautiful Code Screenshots",
+    template: "%s | CodeSnap",
   },
-  description: "SITE_DESCRIPTION",
+  description:
+    "Create beautiful screenshots of your source code. Free, fast, and no account required. Export as PNG or SVG.",
   openGraph: {
-    title: "SITE_TITLE",
-    description: "SITE_DESCRIPTION",
-    url: "https://SUBDOMAIN.rollersoft.com.au",
-    siteName: "SITE_TITLE",
+    title: "CodeSnap — Beautiful Code Screenshots",
+    description:
+      "Create beautiful screenshots of your source code. Free, fast, and no account required.",
+    url: "https://codesnap.starmap.quest",
+    siteName: "CodeSnap",
     locale: "en_AU",
     type: "website",
   },
   alternates: {
-    canonical: "https://SUBDOMAIN.rollersoft.com.au",
+    canonical: "https://codesnap.starmap.quest",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-theme="DAISY_THEME">
+    <html lang="en" data-theme="night">
       <head>
         <GoogleAnalytics />
         <GoogleAdSense />
       </head>
-      <body className="min-h-dvh bg-base-100 flex flex-col">
+      <body className="min-h-dvh bg-[#0a0a0f] text-white flex flex-col">
         <VercelAnalytics />
-        <header className="navbar bg-primary text-primary-content shadow-lg">
-          <div className="container mx-auto px-4">
-            <a className="text-xl font-bold" href="/">SITE_TITLE</a>
-          </div>
-        </header>
-        <main className="container mx-auto px-4 py-8 flex-1">
-          {children}
-        </main>
-        <footer className="footer footer-center p-6 bg-base-200 text-base-content mt-auto">
-          <p>© {new Date().getFullYear()} SITE_TITLE. Data sourced from public records.</p>
+        {children}
+        <footer className="text-center py-4 text-xs text-gray-500">
+          <p>
+            © {new Date().getFullYear()} CodeSnap · Built by{" "}
+            <a
+              href="https://rollersoft.com.au"
+              className="text-purple-400 hover:text-purple-300"
+            >
+              Rollersoft
+            </a>
+          </p>
         </footer>
       </body>
     </html>

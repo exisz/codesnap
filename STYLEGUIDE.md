@@ -1,19 +1,21 @@
 # Style Guide
 
 ## 设计参考
-- [参考网站1 URL] — 借鉴要素（配色/布局/卡片/字体/间距）
-- [参考网站2 URL] — 借鉴要素
-
-## DaisyUI Theme
-`data-theme="DAISY_THEME"` — 在 layout.tsx 中设置
+- [ray.so](https://ray.so) — 借鉴了整体布局（居中代码区 + 侧边控制面板）、渐变背景、圆角窗口 chrome
+- [carbon.now.sh](https://carbon.now.sh) — 借鉴了编辑器嵌入式体验、主题选择下拉、导出按钮位置
+- [chalk.ist](https://chalk.ist) — 借鉴了简洁的 UI、暗色主题为主的设计方向
 
 ## 配色方案
-- Primary: #2563eb (修改 globals.css @theme)
-- Secondary: #7c3aed
-- Accent: #f59e0b
+- 主背景：深色渐变（#0a0a0a → #1a1a2e）
+- 代码窗口：支持多种渐变背景（用户可选）
+- 控制面板：半透明暗色玻璃效果
+- 强调色：紫色 (#8b5cf6) / 蓝色 (#3b82f6) 渐变
+- DaisyUI theme: night（深色基调）
 
 ## 设计决策
-- [ ] 卡片风格：
-- [ ] 布局模式：
-- [ ] 字体层级：
-- [ ] 间距规范：
+- 全屏暗色背景，代码区域居中展示（类似 ray.so）
+- 工具栏在顶部，水平排列控制项
+- 代码窗口带 macOS 风格的红黄绿按钮
+- 导出按钮使用渐变背景突出
+- 语言选择、主题选择使用下拉菜单
+- 背景渐变可自定义（预设 + 自定义颜色）
