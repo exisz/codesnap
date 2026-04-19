@@ -62,9 +62,15 @@ const sequence = Array.from(
 console.log(sequence);
 // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]`;
 
-export default function CodeSnapEditor() {
-  const [code, setCode] = useState(DEFAULT_CODE);
-  const [language, setLanguage] = useState<string>("javascript");
+export default function CodeSnapEditor({
+  initialLanguage = "javascript",
+  initialCode,
+}: {
+  initialLanguage?: string;
+  initialCode?: string;
+} = {}) {
+  const [code, setCode] = useState(initialCode ?? DEFAULT_CODE);
+  const [language, setLanguage] = useState<string>(initialLanguage);
   const [theme, setTheme] = useState<string>("github-dark");
   const [background, setBackground] = useState(BACKGROUNDS[0].value);
   const [padding, setPadding] = useState(48);
