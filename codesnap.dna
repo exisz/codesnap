@@ -1,0 +1,22 @@
+id: dna://project/codesnap
+type: project
+title: "CodeSnap — Beautiful Code Screenshot Generator"
+url: https://codesnap.starmap.quest
+repo: exisz/codesnap
+managed_by: dna://agent/starmap
+status: deployed
+star_ticket: STAR-232
+tracked_in:
+  - dna://board/star
+competitors:
+  - carbon.now.sh
+  - ray.so
+  - chalk.ist
+tech_stack:
+  - Next.js 16
+  - React 19
+  - TypeScript
+  - Tailwind CSS 4
+  - DaisyUI 5
+deploy: vercel
+domain: codesnap.starmap.quest
