@@ -51,6 +51,7 @@ const LAYOUTS = [
   { value: "single", label: "Single" },
   { value: "horizontal", label: "Side-by-side" },
   { value: "vertical", label: "Stacked" },
+  { value: "diff", label: "Diff" },
 ] as const;
 
 type LayoutMode = typeof LAYOUTS[number]["value"];
@@ -117,6 +118,60 @@ export default function CodeSnapEditor({
 
   const activeFile = files.find(f => f.id === activeId) ?? files[0];
 
+  // Restore shareable state from #s=<base64url-json> links. This keeps landing pages
+  // clean while letting users share an exact CodeSnap setup like Carbon/Ray.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("s");
+    if (!raw) return;
+    try {
+      const normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(normalized.length + (4 - normalized.length % 4) % 4, "=");
+      const state = JSON.parse(decodeURIComponent(escape(atob(padded))));
+      if (Array.isArray(state.files) && state.files.length) {
+        const restored = state.files.slice(0, 4).map((f: Partial<CodeFile>, i: number) => ({
+          id: newFileId(),
+          name: typeof f.name === "string" ? f.name : `file${i + 1}.txt`,
+          language: typeof f.language === "string" ? f.language : "javascript",
+          code: typeof f.code === "string" ? f.code : "",
+        }));
+        setFiles(restored);
+        setActiveId(restored[Math.min(Number(state.activeIndex) || 0, restored.length - 1)]?.id ?? restored[0].id);
+      }
+      if (LAYOUTS.some(l => l.value === state.layout)) setLayout(state.layout);
+      if (typeof state.theme === "string") setTheme(state.theme);
+      if (Number.isInteger(state.backgroundIndex) && BACKGROUNDS[state.backgroundIndex]) setBackground(BACKGROUNDS[state.backgroundIndex].value);
+      if (PADDING_OPTIONS.includes(state.padding)) setPadding(state.padding);
+      if (FONT_SIZES.includes(state.fontSize)) setFontSize(state.fontSize);
+      if (typeof state.showHeader === "boolean") setShowHeader(state.showHeader);
+    } catch (e) {
+      console.warn("Failed to restore CodeSnap state", e);
+    }
+  }, []);
+
+  // Keep a compact share URL in sync without polluting browser history on every keystroke.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handle = window.setTimeout(() => {
+      const state = {
+        v: 1,
+        files: files.map(({ name, language, code }) => ({ name, language, code })),
+        activeIndex: Math.max(0, files.findIndex(f => f.id === activeId)),
+        layout,
+        theme,
+        backgroundIndex: Math.max(0, BACKGROUNDS.findIndex(bg => bg.value === background)),
+        padding,
+        fontSize,
+        showHeader,
+      };
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const nextUrl = `${window.location.pathname}${window.location.search}#s=${encoded}`;
+      window.history.replaceState(null, "", nextUrl);
+    }, 500);
+    return () => window.clearTimeout(handle);
+  }, [files, activeId, layout, theme, background, padding, fontSize, showHeader]);
+
   // Highlight all files
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +211,11 @@ export default function CodeSnapEditor({
     setActiveId(nf.id);
     if (layout === "single") setLayout("horizontal");
   }, [files.length, layout]);
+
+  const enableDiffMode = useCallback(() => {
+    if (files.length < 2) addFile();
+    setLayout("diff");
+  }, [files.length, addFile]);
 
   const removeFile = useCallback((id: string) => {
     if (files.length <= 1) return;
@@ -199,8 +259,14 @@ export default function CodeSnapEditor({
     }
   }, [exporting]);
 
-  const renderedFiles = layout === "single" ? [activeFile] : files;
+  const copyShareLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    await navigator.clipboard.writeText(window.location.href);
+  }, []);
+
+  const renderedFiles = layout === "single" ? [activeFile] : layout === "diff" ? files.slice(0, 2) : files;
   const flexDir = layout === "vertical" ? "flex-col" : "flex-row";
+  const diffRows = layout === "diff" ? buildDiffRows(renderedFiles[0]?.code ?? "", renderedFiles[1]?.code ?? "") : [];
 
   return (
     <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-[260px_1fr] gap-6">
@@ -211,8 +277,8 @@ export default function CodeSnapEditor({
             {LAYOUTS.map(l => (
               <button
                 key={l.value}
-                onClick={() => setLayout(l.value)}
-                disabled={files.length < 2 && l.value !== "single"}
+                onClick={() => l.value === "diff" ? enableDiffMode() : setLayout(l.value)}
+                disabled={files.length < 2 && l.value !== "single" && l.value !== "diff"}
                 className={`text-[10px] py-1.5 px-2 rounded transition-all ${
                   layout === l.value
                     ? "bg-purple-500/30 text-white border border-purple-400/50"
@@ -310,25 +376,56 @@ export default function CodeSnapEditor({
         {/* Preview */}
         <div ref={snapRef} style={{ background: background === "transparent" ? undefined : background, padding: `${padding}px` }}
           className="rounded-2xl overflow-x-auto">
-          <div className={`flex ${flexDir} gap-4 ${layout === "horizontal" ? "items-stretch" : ""}`}>
-            {renderedFiles.map(f => (
-              <div key={f.id} className={`rounded-xl overflow-hidden shadow-2xl ${layout === "horizontal" ? "flex-1 min-w-0" : "w-full"}`} style={{ background: "#1e1e1e" }}>
-                {showHeader && (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-black/30">
-                    <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
-                    <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
-                    <div className="w-3 h-3 rounded-full bg-[#28c840]" />
-                    <span className="ml-2 text-xs text-gray-400 font-mono truncate">{layout === "single" ? f.language : f.name}</span>
-                  </div>
-                )}
-                <div
-                  className="p-4 overflow-auto [&_pre]:!bg-transparent [&_code]:!bg-transparent"
-                  style={{ fontSize: `${fontSize}px` }}
-                  dangerouslySetInnerHTML={{ __html: highlightedMap[f.id] ?? "" }}
-                />
-              </div>
-            ))}
-          </div>
+          {layout === "diff" ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {renderedFiles.map((f, fileIndex) => (
+                <div key={f.id} className="rounded-xl overflow-hidden shadow-2xl min-w-0" style={{ background: "#1e1e1e" }}>
+                  {showHeader && (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-black/30">
+                      <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                      <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                      <div className="w-3 h-3 rounded-full bg-[#28c840]" />
+                      <span className="ml-2 text-xs text-gray-400 font-mono truncate">{fileIndex === 0 ? "before" : "after"} · {f.name}</span>
+                    </div>
+                  )}
+                  <pre className="m-0 p-4 overflow-auto font-mono leading-relaxed text-gray-100" style={{ fontSize: `${fontSize}px` }}>
+                    {diffRows.map((row, i) => {
+                      const changed = fileIndex === 0 ? row.beforeChanged : row.afterChanged;
+                      const text = fileIndex === 0 ? row.before : row.after;
+                      return (
+                        <div
+                          key={`${f.id}-${i}`}
+                          className={`-mx-4 px-4 whitespace-pre ${changed ? (fileIndex === 0 ? "bg-red-500/20 text-red-100" : "bg-emerald-500/20 text-emerald-100") : "text-gray-300"}`}
+                        >
+                          <span className="mr-3 select-none text-gray-500">{String(i + 1).padStart(2, "0")}</span>{text || " "}
+                        </div>
+                      );
+                    })}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={`flex ${flexDir} gap-4 ${layout === "horizontal" ? "items-stretch" : ""}`}>
+              {renderedFiles.map(f => (
+                <div key={f.id} className={`rounded-xl overflow-hidden shadow-2xl ${layout === "horizontal" ? "flex-1 min-w-0" : "w-full"}`} style={{ background: "#1e1e1e" }}>
+                  {showHeader && (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-black/30">
+                      <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                      <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                      <div className="w-3 h-3 rounded-full bg-[#28c840]" />
+                      <span className="ml-2 text-xs text-gray-400 font-mono truncate">{layout === "single" ? f.language : f.name}</span>
+                    </div>
+                  )}
+                  <div
+                    className="p-4 overflow-auto [&_pre]:!bg-transparent [&_code]:!bg-transparent"
+                    style={{ fontSize: `${fontSize}px` }}
+                    dangerouslySetInnerHTML={{ __html: highlightedMap[f.id] ?? "" }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Editor for active file */}
@@ -359,6 +456,10 @@ export default function CodeSnapEditor({
             className="btn btn-outline border-white/20 text-gray-300 hover:bg-white/10 hover:scale-105 transition-transform">
             📋 Copy
           </button>
+          <button onClick={copyShareLink}
+            className="btn btn-outline border-purple-400/30 text-purple-200 hover:bg-purple-500/10 hover:scale-105 transition-transform">
+            🔗 Copy Link
+          </button>
         </div>
       </main>
     </div>
@@ -387,6 +488,17 @@ function SidebarSelect({ value, onChange, options }: {
       ))}
     </select>
   );
+}
+
+function buildDiffRows(beforeCode: string, afterCode: string) {
+  const before = beforeCode.split("\n");
+  const after = afterCode.split("\n");
+  const max = Math.max(before.length, after.length);
+  return Array.from({ length: max }, (_, i) => {
+    const b = before[i] ?? "";
+    const a = after[i] ?? "";
+    return { before: b, after: a, beforeChanged: b !== a, afterChanged: b !== a };
+  });
 }
 
 function extForLang(lang: string): string {
